@@ -95,6 +95,17 @@ function isHeaderOrSeparator(name: string, row: string[]): boolean {
   return false;
 }
 
+/** Оценка — справа налево первая ячейка S–F (колонка ≥ O, чтобы не путать с данными слева); комментарий — ячейка слева от неё. */
+function findRatingColumn(row: string[]): number {
+  if (row.length < 14) return -1;
+  for (let c = row.length - 1; c >= 14; c--) {
+    const v = (row[c] || '').trim().toUpperCase();
+    if (!v) continue;
+    if (isValidRating(v)) return c;
+  }
+  return -1;
+}
+
 export async function fetchMonitors(): Promise<ParseResult> {
   const errors: string[] = [];
   const monitors: Monitor[] = [];
@@ -168,16 +179,13 @@ export async function fetchMonitors(): Promise<ParseResult> {
       if (isHeaderOrSeparator(name, row)) continue;
 
       const resolution = (row[1] || '').trim();
-      const ratingRaw = (row[16] || row[15] || '').trim().toUpperCase();
+      const ratingCol = findRatingColumn(row);
+      const ratingRaw = ratingCol >= 0 ? (row[ratingCol] || '').trim().toUpperCase() : '';
 
-      // Try to find rating in column 16 first, then others
       let rating = '';
-      for (const col of [16, 17, 15]) {
-        const val = (row[col] || '').trim().toUpperCase();
-        if (isValidRating(val)) {
-          rating = val;
-          break;
-        }
+      if (ratingCol >= 0) {
+        const val = (row[ratingCol] || '').trim().toUpperCase();
+        if (isValidRating(val)) rating = val;
       }
 
       if (!rating) {
@@ -188,7 +196,7 @@ export async function fetchMonitors(): Promise<ParseResult> {
         continue;
       }
 
-      const comment = (row[15] || '').trim();
+      const comment = ratingCol > 0 ? (row[ratingCol - 1] || '').trim() : '';
 
       const monitor: Monitor = {
         name,
@@ -224,6 +232,6 @@ export async function fetchMonitors(): Promise<ParseResult> {
     errors,
     lastMonitor: lastValidMonitor,
     timestamp: new Date(),
-    totalRows: dataRows.length,
+    totalRows: monitors.length > 0 ? monitors[monitors.length - 1].rowIndex : 0,
   };
 }

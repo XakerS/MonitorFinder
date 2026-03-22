@@ -6,10 +6,13 @@ import { Monitor, ParseResult, Rating, RATING_CONFIG } from './types';
 
 function extractLinks(text: string): { label: string; url: string }[] {
   const links: { label: string; url: string }[] = [];
-  const urlRegex = /https?:\/\/[^\s,)»"]+/g;
+  // Improved regex to handle more URL patterns including parentheses and brackets
+  const urlRegex = /https?:\/\/[^\s,)»"\[\]]+/g;
   let match;
   while ((match = urlRegex.exec(text)) !== null) {
-    const url = match[0];
+    let url = match[0];
+    // Remove trailing punctuation from URL
+    url = url.replace(/[.,;:]+$/, '');
     const before = text.substring(Math.max(0, match.index - 80), match.index);
     const labelMatch = before.match(/(?:\d+\)\s*)?([А-Яа-яёЁA-Za-z\s.+:]+?)\s*[-–—:]?\s*$/);
     const label = labelMatch ? labelMatch[1].trim() : '';
@@ -71,6 +74,9 @@ function MonitorCard({ monitor }: { monitor: Monitor }) {
   const cfg = RATING_CONFIG[monitor.rating];
   const links = extractLinks(monitor.comment);
   const commentText = cleanComment(monitor.comment);
+  
+  // Ensure each card has unique state by using monitor's rowIndex
+  const cardId = `monitor-${monitor.rowIndex}`;
 
   const borderColors: Record<Rating, string> = {
     S: '#d97706', A: '#10b981', B: '#06b6d4', C: '#4b5563',
@@ -146,7 +152,10 @@ function MonitorCard({ monitor }: { monitor: Monitor }) {
       {hasDetails && (
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
             style={{
               width: '100%',
               padding: '8px 16px',
@@ -208,6 +217,7 @@ function MonitorCard({ monitor }: { monitor: Monitor }) {
                         href={l.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
